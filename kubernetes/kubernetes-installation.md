@@ -147,8 +147,7 @@ Now, run the next command (using the previous env variables):
 sudo kubeadm init --pod-network-cidr $POD_CIDR --service-cidr $SERVICE_CIDR --apiserver-advertise-address $PRIMARY_IP
 ```  
 
-After it finishes you should see and follow these instructions:
-
+After it finishes you should follow these instructions, which should be shown in your output.  
 ```
 Your Kubernetes control-plane has initialized successfully!
 
@@ -158,14 +157,7 @@ To start using your cluster, you need to run the following as a regular user:
   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
   sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-You should now deploy a Pod network to the cluster.
-Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
-  /docs/concepts/cluster-administration/addons/
-
-You can now join any number of machines by running the following on each node
-as root:
-
-  kubeadm join <control-plane-host>:<control-plane-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+[...]
 ```
 
 NOTE: if something went wrong, you solved it and you want to use ```kubeadm init``` again, you must do these steps before:  
@@ -213,7 +205,7 @@ https://github.com/kodekloudhub/certified-kubernetes-administrator-course/blob/m
 
 ## Post-installation (Add-ons)
 ### Helm
-If you need Helm in your cluster, follow [this docu](helm.md).  
+If you need Helm in your cluster, follow [this docu](helm/helm.md).  
 
 ### StorageClass
 In order to define how storage should be dynamically provisioned in your cluster, you need to create a StorageClass object.  

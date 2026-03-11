@@ -1,0 +1,125 @@
+# ClearML with Kubernetes
+
+## 1. Prerequisites
+
+- Install a [Kubernetes cluster](../kubernetes/kubernetes-installation.md)   
+- Install [Helm](../kubernetes/helm/helm.md)  
+- Install an [Ingress Controller](../kubernetes/helm/ingresscontroller.md)
+- Install a [Storage Class](../kubernetes/helm/storageclass.md)
+
+## 2. ClearML installation
+
+*Official documentation reference: https://github.com/clearml/clearml-helm-charts/tree/main/charts/clearml*  
+
+Once you have your Kubernetes cluster installed with Helm, follow these steps:  
+
+### 2.1. Add the Helm repository
+
+Add the ClearML chart to your local Helm repository:  
+```bash
+helm repo add clearml https://clearml.github.io/clearml-helm-charts
+```  
+
+### 2.2. Configure your deployment
+
+Clone the ClearML chart repository and edit the `values-production.yaml` file to configure your domain names:  
+```bash
+git clone https://github.com/clearml/clearml-helm-charts.git
+vim clearml-helm-charts/charts/clearml/values-production.yaml
+```  
+Inside this file you have to edit these lines:  
+```yaml
+  hostName: "api.<your domain name>"
+  hostName: "files.<your domain name>"
+  hostName: "app.<your domain name>"
+```  
+
+In order to set these values, you can use either a wildcard DNS service or a custom domain name.  
+Examples:
+- **Using an IP** (Easiest for testing):  
+  *Note: use a worker node's IP*  
+  ```yaml
+  hostName: "api.clearml.172-16-10-11.nip.io"
+  hostName: "files.clearml.172-16-10-11.nip.io"
+  hostName: "app.clearml.172-16-10-11.nip.io"
+  ```  
+
+- **Using a custom domain name** (Production environment):  
+  ```yaml
+  hostName: "api.clearml.doitnowgroup.local"
+  hostName: "files.clearml.doitnowgroup.local"
+  hostName: "app.clearml.doitnowgroup.local"
+  ```  
+
+Then, you must resolve these names on the computer you will use to access the web UI. Add a line such as this to your local `/etc/hosts` file:  
+```
+172.16.10.11    api.clearml.doitnowgroup.local files.clearml.doitnowgroup.local app.clearml.doitnowgroup.local
+```  
+
+*NOTE: Elasticsearch default deployment is set to 3 replicas. If you are using a small cluster, you should adapt the number of replicas and RAM in your `values-production.yaml` file.*  
+
+### 2.3. Deploy ClearML
+
+Install the ClearML app using your config:  
+```bash
+helm install clearml clearml/clearml -f clearml-helm-charts/charts/clearml/values-production.yaml
+```  
+
+
+Depending on your Kubernetes version, you might find an error like this:
+```
+[rjuarez@controlplane clearml-helm-charts]$ helm install clearml clearml/clearml -f clearml-helm-charts/charts/clearml/values-production.yaml
+Error: INSTALLATION FAILED: failed to create typed patch object (default/clearml-mongodb; apps/v1, Kind=StatefulSet): .spec.updateStrategy.rollingUpdate.maxSurge: field not declared in schema
+```  
+If this happens, follow these steps:
+- Edit your file `values-production.yaml`.
+- Find the mongodb block and replace it with this block:
+  ```yaml
+  mongodb:
+    enabled: true
+    architecture: replicaset
+    replicaCount: 2
+    updateStrategy:
+      type: OnDelete
+      rollingUpdate: null
+    arbiter:
+      enabled: false
+    pdb:
+      create: true
+    podAntiAffinityPreset: soft
+  ```  
+- Uninstall the failed ClearML release and delete all related data:  
+  ```bash
+  helm uninstall clearml
+  kubectl delete statefulset clearml-mongodb --ignore-not-found
+  kubectl delete all -l app.kubernetes.io/instance=clearml
+  ```
+- Install ClearML again:
+  ```bash
+  helm install clearml clearml/clearml -f clearml-helm-charts/charts/clearml/values-production.yaml
+  ```  
+*Note: if you make changes in your config file you can update the running app by executing:*  
+```bash
+helm upgrade clearml clearml/clearml -f clearml-helm-charts/charts/clearml/values-production.yaml
+```
+
+## 3. Verifying the installation
+
+Check the status of your pods by executing ```kubectl get pods``` and wait until you have all your ClearML pods "Running".  
+Example output:  
+```
+[rjuarez@controlplane ~]$ kubectl get pods
+NAME                                             READY   STATUS    RESTARTS        AGE
+clearml-apiserver-845544cd9f-sxr8n               1/1     Running   1 (7m13s ago)   21h
+clearml-apiserver-asyncdelete-67b6b746bb-gbbhx   1/1     Running   1 (7m13s ago)   21h
+clearml-elastic-master-0                         1/1     Running   1 (7m13s ago)   102m
+clearml-fileserver-85cd59dbdb-68brt              1/1     Running   1 (7m13s ago)   21h
+clearml-mongodb-0                                1/1     Running   5 (7m13s ago)   21h
+clearml-mongodb-1                                1/1     Running   5 (7m13s ago)   21h
+clearml-redis-master-0                           1/1     Running   4 (7m13s ago)   21h
+clearml-redis-replicas-0                         1/1     Running   8 (5m40s ago)   21h
+clearml-redis-replicas-1                         1/1     Running   8 (5m36s ago)   21h
+clearml-webserver-cf8c779bd-f9js4                1/1     Running   1 (7m13s ago)   21h
+```  
+
+Finally, use the URL set previously in `values-production.yaml` (e.g.: http://app.clearml.172-16-10-11.nip.io/) in your web browser to check if your ClearML app is successfully running.
